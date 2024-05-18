@@ -54,71 +54,75 @@ client.on("messageCreate", async (message) => {
       message.reply("You need to join a voice channel first!");
     }
   } else if (message.content === "/kmhd") {
-    if (!voiceConnection) {
-      message.reply("I need to be in a voice channel first. Use `/join`.");
-      return;
-    }
-
-    const m3u8Url =
-      "https://ais-sa3.cdnstream1.com/2442_128.aac/playlist.m3u8?aw_0_1st.playerid=esPlayer&aw_0_1st.skey=1715963358";
-
-    const ffmpegProcess = child_process.spawn(
-      ffmpeg,
-      [
-        "-i",
-        m3u8Url,
-        "-acodec",
-        "pcm_s16le", // Output audio as raw PCM
-        "-b:a",
-        "32k", // Bitrate
-        "-ar",
-        "48000", // Sample rate
-        "-ac",
-        "2", // Stereo
-        "-f",
-        "s16le", // Output format for PCM
-        "pipe:1", // Output to a pipe
-      ],
-      { stdio: ["ignore", "pipe", "pipe"] }
-    );
-
-    ffmpegProcess.stderr.on("data", (data) => {
-      console.log(`FFmpeg: ${data.toString()}`);
-    });
-
-    ffmpegProcess.on("close", (code, signal) => {
-      console.log(
-        `:( FFmpeg process exited with code ${code} and signal ${signal}`
-      );
-
-    const resource = createAudioResource(ffmpegProcess.stdout, {
-      inputType: StreamType.Raw,
-      inlineVolume: true,
-    });
-    resource.volume.setVolume(1);
-    const player = createAudioPlayer();
-
-    player.play(resource);
-    voiceConnection.subscribe(player);
-
-    // Player error handling
-    player.on("error", (error) => {
-      console.error("Error in audio player:", error);
-      player.stop();
-    });
-
-    // Voice connection disconnection handling
-    voiceConnection.on(VoiceConnectionStatus.Disconnected, async () => {
-      try {
-        player.stop();
-        await voiceConnection.destroy();
-        console.log("Cleaned up resources after disconnection.");
-      } catch (error) {
-        console.error("Error cleaning up resources:", error);
-      }
-    });
-    message.reply("Playing now!");
-  } 
+    play_kmhd(message, voiceConnection);
+  }
 });
-
 client.login(token);
+
+async function play_kmhd(message, voiceConnection) {
+  if (!voiceConnection) {
+    message.reply("I need to be in a voice channel first. Use `/join`.");
+    return;
+  }
+
+  const m3u8Url =
+    "https://ais-sa3.cdnstream1.com/2442_128.aac/playlist.m3u8?aw_0_1st.playerid=esPlayer&aw_0_1st.skey=1715963358";
+
+  const ffmpegProcess = child_process.spawn(
+    ffmpeg,
+    [
+      "-i",
+      m3u8Url,
+      "-acodec",
+      "pcm_s16le", // Output audio as raw PCM
+      "-b:a",
+      "32k", // Bitrate
+      "-ar",
+      "48000", // Sample rate
+      "-ac",
+      "2", // Stereo
+      "-f",
+      "s16le", // Output format for PCM
+      "pipe:1", // Output to a pipe
+    ],
+    { stdio: ["ignore", "pipe", "pipe"] }
+  );
+
+  ffmpegProcess.stderr.on("data", (data) => {
+    console.log(`FFmpeg: ${data.toString()}`);
+  });
+
+  ffmpegProcess.on("close", (code, signal) => {
+    console.log(
+      `:( FFmpeg process exited with code ${code} and signal ${signal}`
+    );
+  });
+
+  const resource = createAudioResource(ffmpegProcess.stdout, {
+    inputType: StreamType.Raw,
+    inlineVolume: true,
+  });
+  resource.volume.setVolume(1);
+  const player = createAudioPlayer();
+
+  player.play(resource);
+  voiceConnection.subscribe(player);
+
+  // Player error handling
+  player.on("error", (error) => {
+    console.error("Error in audio player:", error);
+    player.stop();
+  });
+
+  // Voice connection disconnection handling
+  voiceConnection.on(VoiceConnectionStatus.Disconnected, async () => {
+    try {
+      player.stop();
+      await voiceConnection.destroy();
+      console.log("Cleaned up resources after disconnection.");
+    } catch (error) {
+      console.error("Error cleaning up resources:", error);
+    }
+  });
+  message.reply("Playing now!");
+}
