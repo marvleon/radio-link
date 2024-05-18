@@ -30,7 +30,7 @@ client.once("ready", () => {
 client.on("messageCreate", async (message) => {
   if (!message.guild) return;
 
-  if (message.content === "/join") {
+  if (message.content === "/marvbot") {
     if (message.member.voice.channel) {
       if (
         !voiceConnection ||
@@ -53,7 +53,7 @@ client.on("messageCreate", async (message) => {
     } else {
       message.reply("You need to join a voice channel first!");
     }
-  } else if (message.content === "/play kmhd") {
+  } else if (message.content === "/kmhd") {
     if (!voiceConnection) {
       message.reply("I need to be in a voice channel first. Use `/join`.");
       return;
@@ -69,6 +69,8 @@ client.on("messageCreate", async (message) => {
         m3u8Url,
         "-acodec",
         "pcm_s16le", // Output audio as raw PCM
+        "-b:a",
+        "32k", // Bitrate
         "-ar",
         "48000", // Sample rate
         "-ac",
@@ -84,6 +86,11 @@ client.on("messageCreate", async (message) => {
       console.log(`FFmpeg: ${data.toString()}`);
     });
 
+    ffmpegProcess.on("close", (code, signal) => {
+      console.log(
+        `:( FFmpeg process exited with code ${code} and signal ${signal}`
+      );
+
     const resource = createAudioResource(ffmpegProcess.stdout, {
       inputType: StreamType.Raw,
       inlineVolume: true,
@@ -94,8 +101,24 @@ client.on("messageCreate", async (message) => {
     player.play(resource);
     voiceConnection.subscribe(player);
 
+    // Player error handling
+    player.on("error", (error) => {
+      console.error("Error in audio player:", error);
+      player.stop();
+    });
+
+    // Voice connection disconnection handling
+    voiceConnection.on(VoiceConnectionStatus.Disconnected, async () => {
+      try {
+        player.stop();
+        await voiceConnection.destroy();
+        console.log("Cleaned up resources after disconnection.");
+      } catch (error) {
+        console.error("Error cleaning up resources:", error);
+      }
+    });
     message.reply("Playing now!");
-  }
+  } 
 });
 
 client.login(token);
