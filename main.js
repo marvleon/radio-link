@@ -89,13 +89,25 @@ async function play_kmhd(message, voiceConnection) {
   );
 
   ffmpegProcess.stderr.on("data", (data) => {
-    console.log(`FFmpeg: ${data.toString()}`);
+    // console.log(`FFmpeg: ${data.toString()}`);
   });
 
   ffmpegProcess.on("close", (code, signal) => {
     console.log(
       `:( FFmpeg process exited with code ${code} and signal ${signal}`
     );
+    let retryCount = 0;
+    const maxRetries = 10;
+    if (retryCount < maxRetries) {
+      console.log(
+        "*********************************Attempting to reconnect..."
+      );
+      retryCount++;
+      play_kmhd(message, voiceConnection); // Retry streaming
+    } else {
+      console.log("Max retries reached, stopping...");
+      player.stop();
+    }
   });
 
   const resource = createAudioResource(ffmpegProcess.stdout, {
